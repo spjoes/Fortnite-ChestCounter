@@ -204,11 +204,16 @@ public static class GuiWindow
                 }
             };
             core.NavigationCompleted += (_, _) => TellMaximized();
-            // Links that open a new window (GitHub, the OBS preview): in the player's browser.
+            // Links that open a new window (GitHub, the OBS preview): in the player's browser. Web addresses only: the
+            // address goes to the Windows shell, which would also run file:, UNC paths and other protocol handlers.
             core.NewWindowRequested += (_, e) =>
             {
                 e.Handled = true;
-                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri) { UseShellExecute = true })?.Dispose(); } catch { }
+                if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var target) || (target.Scheme != Uri.UriSchemeHttps && target.Scheme != Uri.UriSchemeHttp))
+                {
+                    return;
+                }
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target.AbsoluteUri) { UseShellExecute = true })?.Dispose(); } catch { }
             };
             view.Source = new Uri(_url);
         }

@@ -7,7 +7,8 @@ public static class AppInfo
 
     public static string VersionText => $"{Version.Major}.{Version.Minor}.{Math.Max(0, Version.Build)}";
 
-    public const string Repo = "LED-N/Fortnite-ChestCounter";
+    /// <summary>Where updates, content.json and the treasure pictures come from (this fork, not the original repository).</summary>
+    public const string Repo = "spjoes/Fortnite-ChestCounter";
     public static string RepoUrl => "https://github.com/" + Repo;
     public static string IssuesUrl => RepoUrl + "/issues";
 

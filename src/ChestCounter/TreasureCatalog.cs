@@ -161,6 +161,15 @@ public static class TreasureCatalog
     private static readonly string[] Kinds = { GoldOutfit, PirateShop, VehicleDecal, PickaxeOrBackBling, JamTrack, LoadingScreen, Gizmo };
 
     /// <summary>
+    /// An https address of at most 300 characters, with none of the characters that could end a quoted string or an
+    /// attribute in a page (quotes, angle brackets, backslash, backtick) and no spaces or control characters.
+    /// </summary>
+    private static bool IsSafeHttpsUrl(string? url) =>
+        url is { Length: > 0 and <= 300 }
+        && !url.Any(c => c is '\'' or '"' or '<' or '>' or '\\' or '`' || char.IsWhiteSpace(c) || char.IsControl(c))
+        && Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps;
+
+    /// <summary>
     /// Reads and checks content.json. Only data, never code or markup: every text is shown escaped, every number has to
     /// be in range, every kind known, every picture an https address. Anything wrong and the whole file is refused.
     /// </summary>
@@ -198,7 +207,7 @@ public static class TreasureCatalog
                 if (e.TryGetProperty("image", out var img) && img.ValueKind == System.Text.Json.JsonValueKind.String)
                 {
                     image = Text(img, 300);
-                    if (!Uri.TryCreate(image, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) throw new InvalidDataException("image");
+                    if (!IsSafeHttpsUrl(image)) throw new InvalidDataException("image");
                 }
                 var ids = e.TryGetProperty("prizeIds", out var list) ? list.EnumerateArray().Select(x => x.GetString() ?? "").Take(6).ToArray() : Array.Empty<string>();
                 if (ids.Any(x => !SafePrizeId.IsMatch(x))) throw new InvalidDataException("prizeIds");
@@ -237,7 +246,7 @@ public static class TreasureCatalog
                 Langs(n.GetProperty("text"), 600),
                 n.TryGetProperty("title", out var tt) ? Langs(tt, 100) : new Dictionary<string, string>(),
                 // a web page to open ("More info"): https only
-                n.TryGetProperty("link", out var lk) ? (lk.GetString() is { Length: <= 300 } url && Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps ? url : throw new InvalidDataException("notice link")) : null,
+                n.TryGetProperty("link", out var lk) ? (lk.GetString() is { } url && IsSafeHttpsUrl(url) ? url : throw new InvalidDataException("notice link")) : null,
                 Ver(n, "minVersion"), Ver(n, "maxVersion"))).ToList() : new List<Notice>();
 
             var pirate = Prize(root.GetProperty("pirateShop"));
@@ -246,7 +255,7 @@ public static class TreasureCatalog
             // Source links shown under "Your chances": https only, optional.
             string Source(string name, string fallback) =>
                 root.TryGetProperty("sources", out var src) && src.TryGetProperty(name, out var v)
-                    ? (v.GetString() is { Length: <= 300 } url && Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps ? url : throw new InvalidDataException("sources." + name))
+                    ? (v.GetString() is { } url && IsSafeHttpsUrl(url) ? url : throw new InvalidDataException("sources." + name))
                     : fallback;
             return new Data(revision, odds, pirate, weeks, hours, notices, Source("odds", DefaultOddsSource), Source("treasureHours", DefaultHoursSource));
         }
