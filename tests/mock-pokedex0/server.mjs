@@ -41,7 +41,7 @@ function initialState() {
   return {
     hunts: {
       [HUNTS.solo]: hunt(HUNTS.solo, "Fortnite Gimmighoul", false, "active", 1287, { odds: 4096, method: "Fortnite chests" }),
-      [HUNTS.multi]: hunt(HUNTS.multi, "Squad chests", true, "active", 0, { participant: 40, others: 500 }),
+      [HUNTS.multi]: hunt(HUNTS.multi, "Squad chests", true, "active", 0, { participant: 40, others: 500, odds: 137500 }),
       [HUNTS.done]: hunt(HUNTS.done, "Old hunt", false, "completed", 9000),
       // A name that would break an inline handler or the page if it was not escaped.
       [HUNTS.other]: hunt(HUNTS.other, `Chests' "quote" </option><img src=x onerror=alert(1)>`, false, "active", 5),
@@ -51,7 +51,7 @@ function initialState() {
     access: new Map(),       // token -> { grantId, expiresAt }
     refresh: new Map(),      // token -> { grantId, rotated }
     ops: new Map(),          // operationId (lower case) -> { huntId, scope, increment }
-    stats: { refreshes: 0, refreshReuse: 0, codeExchanges: 0, incrementRequests: 0, revocations: 0, authorizeRequests: 0 },
+    stats: { huntListRequests: 0, refreshes: 0, refreshReuse: 0, codeExchanges: 0, incrementRequests: 0, revocations: 0, authorizeRequests: 0 },
     failNext: null,
     denyNext: false,
     refreshDelay: 0,
@@ -72,7 +72,7 @@ function payload(h) {
   return {
     id: h.id, user_id: USER.id, public: true, is_multiplayer: h.is_multiplayer, pokemon_id: 999, form_id: 251, game_id: null,
     name: h.name, hunt_method: h.method, current_count: h.current_count, target_count: null, status: h.status,
-    notes: null, revision: h.revision, shiny_method_effect_id: null, custom_odds_denominator: h.odds,
+    notes: null, revision: h.revision, shiny_method_effect_id: h.methodId ?? null, custom_odds_denominator: h.odds,
     pokemon: { id: 999, name: "Gimmighoul", national_dex_number: 999, primary_type: "Ghost", secondary_type: null },
     form: { id: 251, form_name: "Gimmighoul (Chest Form)", form_type: "form", primary_type: null, secondary_type: null },
     game: null, is_owner: !h.is_multiplayer, display_count: display, participant_count: h.is_multiplayer ? 2 : 1,
@@ -235,6 +235,7 @@ async function handle(req, res) {
   }
 
   if (req.method === "GET" && path === "/api/shiny-hunts") {
+    s.stats.huntListRequests++;
     if (!auth(req, res)) return;
     return json(res, 200, { hunts: Object.values(s.hunts).map(payload) });
   }
@@ -345,6 +346,9 @@ async function admin(req, res, name) {
     case "setHuntStatus": s.hunts[a.id].status = a.status; break;
     case "setCount": if (s.hunts[a.id].is_multiplayer) s.hunts[a.id].participant_count = a.count; else s.hunts[a.id].current_count = a.count; break;
     case "deleteHunt": delete s.hunts[a.id]; break;
+    // A friend counted chests on a multiplayer hunt: its total (display_count) and revision change, not the user's count.
+    case "friendIncrement": s.hunts[a.id].others += a.count; s.hunts[a.id].revision++; break;
+    case "setOdds": s.hunts[a.id].odds = a.odds; s.hunts[a.id].methodId = a.methodId ?? null; break;
     case "failNext": s.failNext = { count: a.count ?? 1, status: a.status ?? 503, retryAfter: a.retryAfter }; break;
     case "denyNext": s.denyNext = true; break;
     case "revokeGrants": for (const id of s.grants.keys()) s.grants.get(id).revoked = true; break;

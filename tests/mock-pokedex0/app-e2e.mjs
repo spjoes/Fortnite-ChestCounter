@@ -11,6 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatShinyProbability, getProbabilityAcrossRolls } from "./odds-reference.mjs";
 
 const [exe, replaysDir] = process.argv.slice(2);
 if (!exe || !replaysDir) {
@@ -129,6 +130,18 @@ try {
   await until("new match sent", async () => (await count()) === 1287 + newChests && (await state()).pokedex0.pending === 0);
   check(true, `new match: +${newChests} chests sent (mock 1287 → ${1287 + newChests})`);
   check((await state()).pokedex0.home?.includes("Fortnite Gimmighoul"), "home line shows the hunt");
+
+  // 4b. The overlay's chance (the solo hunt has custom odds 1 in 4,096): from Pokédex0's count, like the website.
+  const expectedLine = `1 in 4,096 · ${formatShinyProbability(getProbabilityAcrossRolls(1 / 4096, 1287 + newChests))}`;
+  const line = await until("overlay line", async () => { const s = await state(); return s.overlay.pokedex0Line === expectedLine && s.overlay.pokedex0Line; });
+  check(line === expectedLine, `overlay chance in the window's state: "${line}"`);
+  const obs = () => fs.readFileSync(path.join(data, "overlay.html"), "utf8").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+  await until("OBS page has the line", () => obs().includes(expectedLine));
+  check(true, "OBS overlay.html shows the same line");
+  await action("showPokedex0Odds", false);
+  await until("line removed from the OBS page", () => !obs().includes("1 in 4,096"));
+  check((await state()).overlay.pokedex0 === false, "switch off: the line leaves the overlay (setting saved)");
+  await action("showPokedex0Odds", true);
 
   // 5. One-time sync, exactly once.
   const stale = await action("pokedex0InitialSync", baselineChests + 1);

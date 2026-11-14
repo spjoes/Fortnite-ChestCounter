@@ -75,9 +75,12 @@ public sealed class MockServerTests : IClassFixture<MockPokedex0>, IDisposable
         try { Directory.Delete(_dir, true); } catch { }
     }
 
+    /// <summary>Added to the real time by the sync's clock (tests of the 5-minute refresh).</summary>
+    private TimeSpan _clockOffset = TimeSpan.Zero;
+
     private Pokedex0Sync NewSync()
     {
-        var sync = new Pokedex0Sync(_dir, _mock.Base) { Log = (t, _) => _log.Enqueue(t) };
+        var sync = new Pokedex0Sync(_dir, _mock.Base, clock: () => DateTime.UtcNow + _clockOffset) { Log = (t, _) => _log.Enqueue(t) };
         _syncs.Add(sync);
         return sync;
     }
@@ -562,5 +565,79 @@ public sealed class MockServerTests : IClassFixture<MockPokedex0>, IDisposable
         var deadline = DateTime.UtcNow.AddSeconds(10);
         while (_mock.Count(MockPokedex0.Solo) != 1295 && DateTime.UtcNow < deadline) Thread.Sleep(50);
         Assert.Equal(1295, _mock.Count(MockPokedex0.Solo));
+    }
+
+    // ---- The overlay's chance (custom odds) ----------------------------------------------------------------------
+
+    [Fact]
+    public void OddsFollowPokedex0CountsAndPendingChests()
+    {
+        var sync = Linked(MockPokedex0.Multi, Fixtures.Data());
+        Assert.Equal(new Pokedex0OddsSnapshot(137_500, true, 40, 540), sync.OddsSnapshot()); // read from the hunt list
+
+        sync.OnMatch(Fixtures.Match("m", 6));
+        var pending = sync.OddsSnapshot();
+        Assert.Equal(new Pokedex0OddsSnapshot(137_500, true, 46, 546), pending); // before sending: Pokédex0 + pending
+
+        Assert.Equal(Pokedex0FlushResult.Sent, sync.FlushNow());
+        Assert.Equal(pending, sync.OddsSnapshot()); // acknowledged: the same figures, now all from Pokédex0
+        Assert.Equal(0, sync.Read(l => Pokedex0Book.PendingChests(l)));
+        Assert.Equal(46, sync.Read(l => l.Hunt!.ServerOwn));
+
+        // A friend played: the team total changes on the next read of the hunt.
+        _mock.Admin("friendIncrement", new { id = MockPokedex0.Multi, count = 100 });
+        Assert.Equal(pending, sync.OddsSnapshot());
+        Assert.True(sync.LoadHuntsNow());
+        Assert.Equal(new Pokedex0OddsSnapshot(137_500, true, 46, 646), sync.OddsSnapshot());
+        L.Set("en");
+        Assert.Equal("1 in 137,500 · You 0.0334% · Team 0.47%", Pokedex0Odds.Line(sync.OddsSnapshot()!));
+
+        // Hidden: a verified method set on the website, or disconnected.
+        _mock.Admin("setOdds", new { id = MockPokedex0.Multi, odds = 137500, methodId = 12 });
+        sync.LoadHuntsNow();
+        Assert.Null(sync.OddsSnapshot());
+        _mock.Admin("setOdds", new { id = MockPokedex0.Multi, odds = 137500 });
+        sync.LoadHuntsNow();
+        Assert.NotNull(sync.OddsSnapshot());
+        sync.Disconnect();
+        Assert.Null(sync.OddsSnapshot());
+    }
+
+    [Fact]
+    public void SoloHuntWithoutCustomOddsShowsNothing()
+    {
+        _mock.Admin("setOdds", new { id = MockPokedex0.Solo, odds = (int?)null });
+        var sync = Linked(MockPokedex0.Solo, Fixtures.Data());
+        Assert.Null(sync.OddsSnapshot());
+        _mock.Admin("setOdds", new { id = MockPokedex0.Solo, odds = 4096 });
+        sync.LoadHuntsNow();
+        Assert.Equal(new Pokedex0OddsSnapshot(4096, false, 1287, 1287), sync.OddsSnapshot());
+    }
+
+    [Fact]
+    public void LinkedHuntIsReadAgainEveryFiveMinutesInTheBackground()
+    {
+        var sync = Linked(MockPokedex0.Multi, Fixtures.Data()); // 1st read of the list (to pick the hunt)
+        Assert.Equal(1, _mock.Stat("huntListRequests"));
+        sync.Start(); // reads the hunts at startup
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_mock.Stat("huntListRequests") < 2 && DateTime.UtcNow < deadline) Thread.Sleep(50);
+        Thread.Sleep(200); // its answer is taken
+        var first = sync.NextHuntsRefreshUtc;
+        Assert.InRange((first - DateTime.UtcNow).TotalMinutes, 4.9, 5.01);
+        var requests = _mock.Stat("huntListRequests");
+
+        _mock.Admin("friendIncrement", new { id = MockPokedex0.Multi, count = 60 });
+        sync.Wake();
+        Thread.Sleep(500);
+        Assert.Equal(requests, _mock.Stat("huntListRequests")); // not due yet: no request
+        Assert.Equal(540, sync.OddsSnapshot()!.TeamCount);
+
+        _clockOffset = TimeSpan.FromMinutes(5.1); // five minutes later
+        sync.Wake();
+        deadline = DateTime.UtcNow.AddSeconds(10);
+        while (sync.OddsSnapshot()!.TeamCount != 600 && DateTime.UtcNow < deadline) Thread.Sleep(50);
+        Assert.Equal(600, sync.OddsSnapshot()!.TeamCount);
+        Assert.Equal(requests + 1, _mock.Stat("huntListRequests"));
     }
 }
