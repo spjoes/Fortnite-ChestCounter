@@ -45,6 +45,8 @@ public static class L
 
     public static string N(int n) => n.ToString("N0", Culture);
 
+    public static string N(long n) => n.ToString("N0", Culture);
+
     /// <summary>"3 coffres" / "3 chests" / "3 cofres" (regular plurals: + "s").</summary>
     public static string Count(int n, string fr, string en, string es) => Count(n, fr, fr + "s", en, en + "s", es, es + "s");
 

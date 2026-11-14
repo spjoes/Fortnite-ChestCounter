@@ -58,6 +58,33 @@ public sealed class HuntLedger
     public DateTime? LastSentUtc { get; set; }
     public int LastSentChests { get; set; }
     public int SentChests { get; set; }
+
+    // ---- Last counts read from Pokédex0 (hunt list or increment acknowledgement), for the overlay's chance ------------
+
+    /// <summary>Custom odds 1 in N (null: none, or a verified game method decides the odds).</summary>
+    public int? OddsDenominator { get; set; }
+
+    /// <summary>The player's own count on Pokédex0 (participant count, or the hunt's count when solo).</summary>
+    public long? ServerOwn { get; set; }
+
+    /// <summary>The hunt's total on Pokédex0 (display_count: every participant of a multiplayer hunt).</summary>
+    public long? ServerTotal { get; set; }
+
+    /// <summary>Revision of these counts: an older snapshot never replaces a newer one.</summary>
+    public long? ServerRevision { get; set; }
+
+    /// <summary>Keeps a snapshot of Pokédex0's counts unless it is older than the one kept. True when taken.</summary>
+    public bool TakeCounts(long? own, long? total, long? revision)
+    {
+        if (revision != null && ServerRevision != null && revision < ServerRevision)
+        {
+            return false;
+        }
+        ServerOwn = own ?? ServerOwn;
+        ServerTotal = total ?? ServerTotal;
+        ServerRevision = revision ?? ServerRevision;
+        return true;
+    }
 }
 
 /// <summary>
@@ -322,6 +349,25 @@ public static class Pokedex0Book
 
     /// <summary>Chests waiting in the outbox for the linked hunt.</summary>
     public static int PendingChests(Pokedex0Ledger s) => s.Outbox.Where(o => o.HuntId == s.HuntId).Sum(o => o.Increment);
+
+    /// <summary>
+    /// What the overlay's chance is computed from, or null (no hunt, no valid custom odds, no count read yet).
+    /// Pokédex0's counts plus this hunt's chests still in the outbox: when an acknowledgement arrives, its counts are
+    /// taken and its operations leave the outbox in the same step (<see cref="Acknowledge"/> + TakeCounts under one
+    /// lock), so a chest is never counted twice nor missing for a moment.
+    /// </summary>
+    public static Pokedex0OddsSnapshot? OddsSnapshot(Pokedex0Ledger s)
+    {
+        var h = s.Hunt;
+        if (h == null || !Pokedex0Odds.ValidDenominator(h.OddsDenominator) || (h.ServerOwn == null && h.ServerTotal == null))
+        {
+            return null;
+        }
+        var pending = PendingChests(s);
+        var own = Math.Max(0, (h.Multiplayer ? h.ServerOwn ?? 0 : h.ServerTotal ?? h.ServerOwn ?? 0) + pending);
+        var team = Math.Max(0, (h.ServerTotal ?? h.ServerOwn ?? 0) + pending);
+        return new Pokedex0OddsSnapshot(h.OddsDenominator!.Value, h.Multiplayer, own, team);
+    }
 }
 
 /// <summary>Reads and writes pokedex0.json atomically (like data.json).</summary>

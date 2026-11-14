@@ -89,9 +89,18 @@ public sealed record Pokedex0TokenResult(Pokedex0Tokens? Tokens, int Status, str
 }
 
 /// <summary>A hunt of the player, as listed by Pokédex0 (only what the counter shows; every field is optional).</summary>
+/// <param name="OddsDenominator">Custom odds 1 in N, only when valid (1..1,000,000) and no verified game method is set
+/// (the website then ignores custom odds, see getHuntShinyOddsInput).</param>
+/// <param name="VerifiedMethod">shiny_method_effect_id is set: a catalogued game method decides the odds.</param>
+/// <param name="Revision">Counter revision (monotonic): orders count snapshots.</param>
 public sealed record Pokedex0Hunt(
     string Id, string Name, bool Multiplayer, bool IsOwner, string Status, int DisplayCount, int? MyCount,
-    int? TargetCount, string? Method, string? Pokemon, string? Game, int? OddsDenominator);
+    int? TargetCount, string? Method, string? Pokemon, string? Game, int? OddsDenominator,
+    bool VerifiedMethod = false, long? Revision = null)
+{
+    /// <summary>The player's own count: their participant count (multiplayer), the hunt's count (solo).</summary>
+    public int OwnCount => Multiplayer ? MyCount ?? 0 : DisplayCount;
+}
 
 /// <summary>The Pokédex0 account the counter is connected to.</summary>
 public sealed record Pokedex0Account(string? Id, string? Username, string? DisplayName);
@@ -391,7 +400,11 @@ public sealed class Pokedex0Client
             return null;
         }
         var multiplayer = Bool(item, "is_multiplayer") ?? false;
-        var odds = Int(item, "custom_odds_denominator") ?? Int(item, "customOddsDenominator");
+        // Like the website: custom odds only count when no verified method is set (missing or null), and only as a
+        // whole number from 1 to 1,000,000 (isValidCustomOddsDenominator).
+        var verified = item.TryGetProperty("shiny_method_effect_id", out var method) && method.ValueKind != JsonValueKind.Null;
+        var odds = WholeNumber(item, "custom_odds_denominator") ?? WholeNumber(item, "customOddsDenominator");
+        long? revision = item.TryGetProperty("revision", out var rev) && rev.ValueKind == JsonValueKind.Number && rev.TryGetInt64(out var rv) ? rv : null;
         return new Pokedex0Hunt(
             id,
             Clean(Str(item, "name"), 120) is { Length: > 0 } name ? name : "—",
@@ -404,8 +417,15 @@ public sealed class Pokedex0Client
             Clean(Str(item, "hunt_method"), 80),
             Clean(Name(item, "pokemon"), 60),
             Clean(Name(item, "game"), 60),
-            odds is >= 1 and <= 1_000_000 ? odds : null);
+            !verified && Pokedex0Odds.ValidDenominator(odds) ? (int)odds!.Value : null,
+            verified,
+            revision);
     }
+
+    /// <summary>A JSON number that is a whole number (Number.isSafeInteger), or null: 4096.5 or "4096" are not odds.</summary>
+    private static long? WholeNumber(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var d)
+        && double.IsFinite(d) && Math.Floor(d) == d && Math.Abs(d) <= 9007199254740991 ? (long)d : null;
 
     /// <summary>GET /api/oauth/session: the account behind the token.</summary>
     public static Pokedex0Account ParseAccount(JsonElement? body)

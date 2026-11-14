@@ -58,7 +58,10 @@ public sealed class Pokedex0Sync : IDisposable
     private DateTime _nextAttempt = DateTime.MinValue;
     private int _failures;
     private bool _unreachable;
-    private readonly Dictionary<string, Pokedex0Acknowledgement> _acks = new();
+    private DateTime _nextHuntsRefresh = DateTime.MinValue;
+
+    /// <summary>The linked hunt is read again this often (the team total changes when friends play).</summary>
+    public static readonly TimeSpan HuntsRefreshInterval = TimeSpan.FromMinutes(5);
     private readonly HashSet<string> _endpointFlipped = new();
     private int _refreshCount;
 
@@ -206,7 +209,6 @@ public sealed class Pokedex0Sync : IDisposable
             _ledger = new Pokedex0Ledger();
             _file.Delete();
             _hunts = null;
-            _acks.Clear();
             _failures = 0;
             _unreachable = false;
         }
@@ -390,20 +392,42 @@ public sealed class Pokedex0Sync : IDisposable
         {
             _huntsLoading = false;
             _huntsFailed = !response.Ok;
+            // Next periodic read in 5 minutes, after a success or a failure alike (never a tight loop).
+            _nextHuntsRefresh = _now() + HuntsRefreshInterval;
             if (response.Ok)
             {
                 _hunts = Pokedex0Client.ParseHunts(response.Body);
-                // The linked hunt renamed (or changed) on the website.
+                // The linked hunt renamed or changed on the website, and its counts (friends play too).
                 if (_ledger.Hunt is { } h && _hunts.FirstOrDefault(x => x.Id == _ledger.HuntId) is { } fresh)
                 {
-                    h.Name = fresh.Name;
-                    h.Multiplayer = fresh.Multiplayer;
+                    TakeHunt(h, fresh);
                     SaveLedger();
                 }
             }
         }
         Changed?.Invoke();
         return response.Ok;
+    }
+
+    /// <summary>What the list says about a hunt: name, kind, odds, and its counts (unless older than those kept).</summary>
+    private static void TakeHunt(HuntLedger h, Pokedex0Hunt listed)
+    {
+        h.Name = listed.Name;
+        h.Multiplayer = listed.Multiplayer;
+        h.OddsDenominator = listed.OddsDenominator;
+        h.TakeCounts(listed.OwnCount, listed.DisplayCount, listed.Revision);
+    }
+
+    /// <summary>
+    /// The overlay's Pokédex0 chance, or null: not connected, no hunt, no valid custom odds (or a verified game method),
+    /// or no count read from Pokédex0 yet.
+    /// </summary>
+    public Pokedex0OddsSnapshot? OddsSnapshot()
+    {
+        lock (_gate)
+        {
+            return _tokens == null ? null : Pokedex0Book.OddsSnapshot(_ledger);
+        }
     }
 
     public IReadOnlyList<Pokedex0Hunt> Hunts { get { lock (_gate) return _hunts?.ToList() ?? new List<Pokedex0Hunt>(); } }
@@ -428,6 +452,7 @@ public sealed class Pokedex0Sync : IDisposable
                 return L.T("Cette chasse n'est plus dans la liste : actualise-la.", "This hunt is no longer in the list: refresh it.", "Esta búsqueda ya no está en la lista: actualízala.");
             }
             dropped = Pokedex0Book.Link(_ledger, hunt.Id, hunt.Name, hunt.Multiplayer, data, Profiles.Current(data, config)?.Key, _now());
+            TakeHunt(_ledger.Hunt!, hunt);
             _failures = 0;
             _nextAttempt = DateTime.MinValue;
             _unreachable = false;
@@ -540,6 +565,9 @@ public sealed class Pokedex0Sync : IDisposable
         _worker.Start();
     }
 
+    /// <summary>The worker looks at its schedule again now (tests: after moving the clock).</summary>
+    public void Wake() => _signal.Set();
+
     public void Stop()
     {
         _stopped = true;
@@ -559,7 +587,7 @@ public sealed class Pokedex0Sync : IDisposable
             }
             try
             {
-                if (Interlocked.Exchange(ref _huntsRequested, 0) == 1)
+                if (Interlocked.Exchange(ref _huntsRequested, 0) == 1 || DueForHuntsRefresh())
                 {
                     LoadHuntsNow();
                 }
@@ -589,14 +617,30 @@ public sealed class Pokedex0Sync : IDisposable
             {
                 return TimeSpan.Zero;
             }
+            var wait = Timeout.InfiniteTimeSpan;
             if (_ledger.Paused == null && Pokedex0Book.NextBatch(_ledger, 1).Count > 0)
             {
-                var wait = _nextAttempt - _now();
-                return wait <= TimeSpan.Zero ? TimeSpan.Zero : wait > MaxBackoff ? MaxBackoff : wait;
+                wait = _nextAttempt - _now();
+                wait = wait <= TimeSpan.Zero ? TimeSpan.Zero : wait > MaxBackoff ? MaxBackoff : wait;
             }
-            return Timeout.InfiniteTimeSpan;
+            if (_ledger.Linked)
+            {
+                // The linked hunt is read again every 5 minutes (its team total), only while connected.
+                var refresh = _nextHuntsRefresh - _now();
+                refresh = refresh <= TimeSpan.Zero ? TimeSpan.Zero : refresh;
+                wait = wait == Timeout.InfiniteTimeSpan || refresh < wait ? refresh : wait;
+            }
+            return wait;
         }
     }
+
+    private bool DueForHuntsRefresh()
+    {
+        lock (_gate) return _tokens != null && _ledger.Linked && _now() >= _nextHuntsRefresh;
+    }
+
+    /// <summary>When the linked hunt is read again (tests).</summary>
+    public DateTime NextHuntsRefreshUtc { get { lock (_gate) return _nextHuntsRefresh; } }
 
     private bool DueForSending()
     {
@@ -740,10 +784,12 @@ public sealed class Pokedex0Sync : IDisposable
             _failures = 0;
             _nextAttempt = DateTime.MinValue;
             _unreachable = false;
-            if (Pokedex0Client.ParseAcknowledgement(r.Body) is { } ack
-                && (!_acks.TryGetValue(huntId, out var shown) || shown.Revision == null || ack.Revision == null || ack.Revision >= shown.Revision))
+            // Same step as the outbox removal above: the counts now include these chests, and they are no longer
+            // pending, so the overlay's chance never counts them twice nor drops for a moment.
+            if (Pokedex0Client.ParseAcknowledgement(r.Body) is { } ack && _ledger.Hunts.TryGetValue(huntId, out var acked))
             {
-                _acks[huntId] = ack;
+                var multiplayer = acked.Multiplayer;
+                acked.TakeCounts(ack.ViewerCount ?? (multiplayer ? null : ack.DisplayCount), ack.DisplayCount, ack.Revision);
             }
             name = _ledger.Hunts.GetValueOrDefault(huntId)?.Name;
             SaveLedger();
@@ -810,7 +856,6 @@ public sealed class Pokedex0Sync : IDisposable
             var pending = Pokedex0Book.PendingChests(_ledger);
             var (initChests, initMatches) = Pokedex0Book.InitialSyncPreview(_ledger);
             var listed = h == null ? null : _hunts?.FirstOrDefault(x => x.Id == _ledger.HuntId);
-            var ack = h == null ? null : _acks.GetValueOrDefault(_ledger.HuntId!);
             var (kind, text) = Status(connected, h, pending);
             var profileName = h?.ProfileKey == null ? null : Profiles.List(data).FirstOrDefault(p => p.Key == h.ProfileKey)?.Name;
             return new
@@ -829,7 +874,7 @@ public sealed class Pokedex0Sync : IDisposable
                     id = _ledger.HuntId,
                     name = h.Name,
                     listed = listed != null,
-                    details = HuntDetails(listed, h, ack),
+                    details = HuntDetails(listed, h),
                     profile = profileName,
                 },
                 pending,
@@ -920,10 +965,10 @@ public sealed class Pokedex0Sync : IDisposable
         return string.Join(" · ", parts);
     }
 
-    private static string HuntDetails(Pokedex0Hunt? listed, HuntLedger h, Pokedex0Acknowledgement? ack)
+    private static string HuntDetails(Pokedex0Hunt? listed, HuntLedger h)
     {
-        var total = ack?.DisplayCount ?? listed?.DisplayCount;
-        var mine = ack?.ViewerCount ?? listed?.MyCount;
+        var total = h.ServerTotal ?? listed?.DisplayCount;
+        var mine = h.ServerOwn ?? listed?.MyCount;
         var parts = new List<string>();
         parts.Add(h.Multiplayer ? L.T("multijoueur", "multiplayer", "multijugador") : L.T("solo", "solo", "individual"));
         if (h.Multiplayer && mine != null)
