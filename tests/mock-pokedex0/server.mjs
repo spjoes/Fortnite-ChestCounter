@@ -337,6 +337,8 @@ async function admin(req, res, name) {
         ops: Object.fromEntries(s.ops),
         grants: [...s.grants.values()],
         lastAuthorize: s.lastAuthorize,
+        // Every token and code ever issued: the tests check that none of them is written anywhere by the counter.
+        secrets: [...s.access.keys(), ...s.refresh.keys(), ...s.codes.keys()],
       });
     case "reset": s = initialState(); break;
     case "expireAccessTokens": for (const v of s.access.values()) v.expiresAt = 0; break;
