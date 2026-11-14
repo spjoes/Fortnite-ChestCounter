@@ -60,6 +60,9 @@ public sealed class Tracker
     /// <summary>Called after each replay of a scan (the window's actions are run there during a long batch).</summary>
     public Action? BetweenFiles { get; set; }
 
+    /// <summary>A match was added, or replaced by its re-analysis, and saved (the Pokédex0 ledger listens).</summary>
+    public Action<MatchRecord>? MatchRecorded { get; set; }
+
     /// <summary>True when the counter is quitting: a scan stops after the replay being read.</summary>
     public Func<bool>? StopRequested { get; set; }
 
@@ -292,6 +295,11 @@ public sealed class Tracker
             _config.Profile = Profiles.Key(record);
             try { _store.SaveConfig(_config); } catch { /* ignore */ }
         }
+
+        // Saved: the Pokédex0 hunt (when one is linked) gets the difference with what it already has from this match
+        // (the whole match when new, the change when re-analyzed). Queued only: sent by a background thread.
+        try { MatchRecorded?.Invoke(record); }
+        catch (Exception ex) { ErrorLog.Write("Pokédex0 ledger", ex.GetType().Name + ": " + ex.Message); }
 
         return new Outcome(record, Updated: existing != null);
     }

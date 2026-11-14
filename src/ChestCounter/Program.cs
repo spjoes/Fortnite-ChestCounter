@@ -194,6 +194,13 @@ var tracker = new Tracker(store, config, data);
 // Before any scan: otherwise replays analyzed during the setup would be analyzed a second time right after.
 var reanalyzing = tracker.UpgradeIfNeeded();
 
+// Optional Pokédex0 connection: each match recorded adds its chests to the hunt the player linked (queued on disk here,
+// sent by a background thread). No network at all while not connected.
+var pokedex0 = new Pokedex0Sync(store.Folder, Pokedex0Endpoint.FromEnvironment());
+pokedex0.Log = (text, color) => { Console.ForegroundColor = color; Console.WriteLine(text); Console.ResetColor(); };
+tracker.MatchRecorded = pokedex0.OnMatch;
+pokedex0.Reconcile(data); // a match saved right before a crash or a quit is caught up
+
 store.SaveConfig(config);
 
 // Treasure hunt data (content.json: weeks, prize ids, odds, Treasure Hours, notices): the newest copy kept in the data
@@ -356,9 +363,26 @@ var guiWindowed = false; // the page is shown in the counter's own window (WebVi
 var guiActions = new ConcurrentQueue<Action>();
 object? lastGuiState = null;
 var welcome = firstRun;
+// Lines of the Pokédex0 thread: written by the main loop (the activity log is not shared between threads).
+pokedex0.Log = (text, color) =>
+{
+    guiActions.Enqueue(() => { Console.ForegroundColor = color; Console.WriteLine(text); Console.ResetColor(); });
+    wake.Set();
+};
 if (gui)
 {
     guiServer = new GuiServer(GuiState, GuiAction, store.Folder, store.ReportPath, store.OverlayPath);
+    // The browser comes back from Pokédex0 here (state checked, code exchanged), then the counter comes to the front.
+    guiServer.OAuthCallback = query =>
+    {
+        var result = pokedex0.HandleCallback(query);
+        if (result != Pokedex0CallbackResult.Invalid && guiWindowed && OperatingSystem.IsWindows())
+        {
+            GuiWindow.Restore();
+        }
+        wake.Set();
+        return Pokedex0Sync.CallbackPage(result);
+    };
     guiServer.Start();
     if (Environment.GetEnvironmentVariable("CHESTCOUNTER_GUI_URL_FILE") is { Length: > 0 } urlFile)
     {
@@ -416,6 +440,7 @@ if (OperatingSystem.IsWindows())
 }
 
 WatchReplays();
+pokedex0.Start(); // connected: reads the hunts, then sends what is waiting (nothing at all when not connected)
 
 // During a long scan, the window's actions (welcome card, settings…) are run between two replays.
 tracker.BetweenFiles = () =>
@@ -527,6 +552,7 @@ while (!quit)
 }
 
 watcher?.Dispose();
+pokedex0.Stop(); // what is still queued stays on disk and is sent at the next start
 if (OperatingSystem.IsWindows())
 {
     NativeOverlay.Stop();
@@ -965,6 +991,8 @@ object BuildGuiState()
         notices = TreasureCatalog.ActiveNotices(DateTime.UtcNow).Where(n => !config.DismissedNotices.Contains(n.Id))
             .Select(n => new { id = n.Id, level = n.Level, title = n.TitleIn(L.Code), text = n.TextIn(L.Code), link = n.Link }).ToList(),
         reportStamp = File.Exists(store.ReportPath) ? File.GetLastWriteTimeUtc(store.ReportPath).Ticks.ToString() : "",
+        // Optional Pokédex0 connection (no token, code or verifier in it; names come from the network: escaped by the page).
+        pokedex0 = pokedex0.GuiState(data),
     };
 }
 
@@ -1137,6 +1165,72 @@ object? RunGuiAction(string name, System.Text.Json.JsonElement value)
         case "openErrorLog": if (File.Exists(store.ErrorLogPath)) Open(store.ErrorLogPath); settingsChanged = false; break;
         case "openIssues": Open(AppInfo.IssuesUrl); settingsChanged = false; break;
         case "openRepo": Open(AppInfo.RepoUrl); settingsChanged = false; break;
+        // ---- Pokédex0 (no network here: the background thread does it, the page sees the result in the state) ----
+        case "pokedex0Connect":
+            settingsChanged = false;
+            if (guiServer != null)
+            {
+                var authorizeUrl = pokedex0.BeginConnect(guiServer.Port);
+                if (Environment.GetEnvironmentVariable("CHESTCOUNTER_POKEDEX0_AUTHORIZE_FILE") is { Length: > 0 } authorizeFile)
+                {
+                    File.WriteAllText(authorizeFile, authorizeUrl); // development and tests: written instead of opening the browser
+                }
+                else
+                {
+                    // The player's default browser (their Pokédex0 session is there), not the counter's window.
+                    try { Process.Start(new ProcessStartInfo(authorizeUrl) { UseShellExecute = true })?.Dispose(); }
+                    catch
+                    {
+                        pokedex0.CancelConnect();
+                        result = new { error = L.T("Impossible d'ouvrir le navigateur.", "The browser could not be opened.", "No se pudo abrir el navegador.") };
+                    }
+                }
+            }
+            break;
+        case "pokedex0Cancel": pokedex0.CancelConnect(); settingsChanged = false; break;
+        case "pokedex0Disconnect":
+        {
+            settingsChanged = false;
+            var dropped = pokedex0.Disconnect();
+            Console.WriteLine($"{L.Stamp} " + (dropped != 0
+                ? L.T($"Pokédex0 : déconnecté ({L.Count(dropped, "coffre en attente abandonné", "coffres en attente abandonnés", "", "", "", "")}).", $"Pokédex0: disconnected ({L.Count(dropped, "", "", "waiting chest dropped", "waiting chests dropped", "", "")}).", $"Pokédex0: desconectado ({L.Count(dropped, "", "", "", "", "cofre en espera descartado", "cofres en espera descartados")}).")
+                : L.T("Pokédex0 : déconnecté.", "Pokédex0: disconnected.", "Pokédex0: desconectado.")));
+            break;
+        }
+        case "pokedex0Hunts": pokedex0.RequestHunts(); settingsChanged = false; break;
+        case "pokedex0Hunt":
+        {
+            settingsChanged = false;
+            // Only an id of the list read from Pokédex0 (checked as a UUID and looked up there).
+            if (pokedex0.SelectHunt(Str(), data, config, out var dropped) is { } huntError)
+            {
+                result = new { error = huntError };
+                break;
+            }
+            var huntName = pokedex0.Read(l => l.Hunt?.Name);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"{L.Stamp} " + L.T($"Pokédex0 : chasse « {huntName} » choisie. Les coffres de tes prochaines parties y seront ajoutés.",
+                $"Pokédex0: hunt \"{huntName}\" chosen. The chests of your next matches will be added to it.",
+                $"Pokédex0: búsqueda «{huntName}» elegida. Los cofres de tus próximas partidas se añadirán a ella."));
+            Console.ResetColor();
+            if (dropped != 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine($"{L.Stamp} " + L.T($"Pokédex0 : {L.Count(dropped, "coffre en attente pour l'ancienne chasse abandonné", "coffres en attente pour l'ancienne chasse abandonnés", "", "", "", "")}.",
+                    $"Pokédex0: {L.Count(dropped, "", "", "chest waiting for the previous hunt was dropped", "chests waiting for the previous hunt were dropped", "", "")}.",
+                    $"Pokédex0: {L.Count(dropped, "", "", "", "", "cofre en espera para la búsqueda anterior descartado", "cofres en espera para la búsqueda anterior descartados")}."));
+                Console.ResetColor();
+            }
+            break;
+        }
+        case "pokedex0InitialSync":
+            settingsChanged = false;
+            if (pokedex0.StartInitialSync(Int()) is { } syncError)
+            {
+                result = new { error = syncError };
+            }
+            break;
+        case "pokedex0Retry": pokedex0.RetryNow(); settingsChanged = false; break;
         case "uninstall": result = UninstallNow(Bool()); settingsChanged = false; break;
         case "quit": quit = true; settingsChanged = false; break;
         default: settingsChanged = false; break;

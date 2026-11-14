@@ -132,6 +132,46 @@ public static class GuiPage
         ["closed"] = L.T("Le compteur est arrêté. Tu peux fermer cette fenêtre.", "The counter is stopped. You can close this window.", "El contador está detenido. Puedes cerrar esta ventana."),
         ["offline"] = L.T("Le compteur ne répond plus (fermé ?). Relance ChestCounter.exe.", "The counter does not answer (closed?). Start ChestCounter.exe again.", "El contador no responde (¿cerrado?). Vuelve a abrir ChestCounter.exe."),
         ["footer"] = L.T("Fermer cette fenêtre ne coupe pas le compteur.", "Closing this window does not stop the counter.", "Cerrar esta ventana no detiene el contador."),
+        // Pokédex0 (optional connection to a shiny-hunt tracker)
+        ["p0Intro"] = L.T("Facultatif : connecte ton compte Pokédex0 (suivi de chasses aux shiny) et choisis une chasse. Chaque partie comptée ensuite y ajoute ses coffres (les tiens, pas ceux de l'équipe). Rien n'est envoyé tant que tu ne te connectes pas.",
+            "Optional: connect your Pokédex0 account (shiny-hunt tracker) and choose a hunt. Each match counted from then on adds its chests to it (yours, not the squad's). Nothing is sent until you connect.",
+            "Opcional: conecta tu cuenta de Pokédex0 (seguimiento de búsquedas de shiny) y elige una búsqueda. Cada partida contada después le añade sus cofres (los tuyos, no los del equipo). No se envía nada mientras no te conectes."),
+        ["p0Connect"] = L.T("Se connecter à Pokédex0", "Connect to Pokédex0", "Conectar con Pokédex0"),
+        ["p0SignIn"] = L.T("Se reconnecter", "Sign in again", "Volver a conectarse"),
+        ["p0Waiting"] = L.T("Accepte la connexion dans la page qui vient de s'ouvrir dans ton navigateur. Rien ne s'est ouvert ? Clique de nouveau sur « Se connecter ».",
+            "Approve the connection in the page that just opened in your browser. Nothing opened? Click \"Connect\" again.",
+            "Acepta la conexión en la página que se acaba de abrir en tu navegador. ¿No se abrió nada? Pulsa «Conectar» otra vez."),
+        ["p0Cancel"] = L.T("Annuler", "Cancel", "Cancelar"),
+        ["p0As"] = L.T("Connecté en tant que {0}", "Connected as {0}", "Conectado como {0}"),
+        ["p0AsUnknown"] = L.T("Connecté", "Connected", "Conectado"),
+        ["p0Disconnect"] = L.T("Se déconnecter", "Disconnect", "Desconectar"),
+        ["p0DisconnectConfirm"] = L.T("Se déconnecter de Pokédex0 ? Le compteur oublie la connexion et la chasse choisie ; les coffres pas encore envoyés ({0}) sont abandonnés. Tes chasses sur Pokédex0 ne changent pas.",
+            "Disconnect from Pokédex0? The counter forgets the connection and the chosen hunt; chests not sent yet ({0}) are dropped. Your hunts on Pokédex0 do not change.",
+            "¿Desconectar de Pokédex0? El contador olvida la conexión y la búsqueda elegida; los cofres aún no enviados ({0}) se descartan. Tus búsquedas en Pokédex0 no cambian."),
+        ["p0Hunt"] = L.T("Chasse", "Hunt", "Búsqueda"),
+        ["p0HuntHelp"] = L.T("Les chasses actives de ton compte. Dès que tu en choisis une, chaque nouvelle partie y ajoute ses coffres : les parties déjà comptées ne sont pas envoyées.",
+            "The active hunts of your account. Once you choose one, each new match adds its chests to it: the matches already counted are not sent.",
+            "Las búsquedas activas de tu cuenta. En cuanto eliges una, cada nueva partida le añade sus cofres: las partidas ya contadas no se envían."),
+        ["p0Choose"] = L.T("Choisis une chasse…", "Choose a hunt…", "Elige una búsqueda…"),
+        ["p0NoHunts"] = L.T("Aucune chasse active sur ton compte Pokédex0 : crée-en une sur le site, puis actualise.", "No active hunt on your Pokédex0 account: create one on the website, then refresh.", "No hay ninguna búsqueda activa en tu cuenta de Pokédex0: crea una en la web y actualiza."),
+        ["p0Loading"] = L.T("Chargement de tes chasses…", "Loading your hunts…", "Cargando tus búsquedas…"),
+        ["p0LoadFailed"] = L.T("Impossible de lire tes chasses pour l'instant.", "Your hunts cannot be read right now.", "No se pueden leer tus búsquedas ahora mismo."),
+        ["p0Refresh"] = L.T("Actualiser", "Refresh", "Actualizar"),
+        ["p0Unlisted"] = L.T("(plus active)", "(no longer active)", "(ya no activa)"),
+        ["p0Profile"] = L.T("parties de {0}", "matches of {0}", "partidas de {0}"),
+        ["p0Status"] = L.T("Envoi", "Sending", "Envío"),
+        ["p0Retry"] = L.T("Réessayer", "Retry", "Reintentar"),
+        ["p0Initial"] = L.T("Coffres comptés avant", "Chests counted before", "Cofres contados antes"),
+        ["p0InitialHelp"] = L.T("Une seule fois : ajoute à la chasse les {0} coffres des {1} comptées avant de la choisir. Les coffres ajoutés à la main (crayon) ne sont pas inclus.",
+            "One time only: adds to the hunt the {0} chests of the {1} counted before you chose it. Chests added by hand (pencil) are not included.",
+            "Solo una vez: añade a la búsqueda los {0} cofres de las {1} contadas antes de elegirla. Los cofres añadidos a mano (lápiz) no se incluyen."),
+        ["p0InitialBtn"] = L.T("Ajouter {0} coffres", "Add {0} chests", "Añadir {0} cofres"),
+        ["p0InitialConfirm"] = L.T("Ajouter {0} coffres à la chasse maintenant ?\n\nCe sont les coffres des {1} comptées avant que tu choisisses cette chasse. Les coffres ajoutés à la main (crayon) ne sont pas inclus. Cela ne peut se faire qu'une fois.",
+            "Add {0} chests to the hunt now?\n\nThese are the chests of the {1} counted before you chose this hunt. Chests added by hand (pencil) are not included. This can only be done once.",
+            "¿Añadir {0} cofres a la búsqueda ahora?\n\nSon los cofres de las {1} contadas antes de que eligieras esta búsqueda. Los cofres añadidos a mano (lápiz) no se incluyen. Solo se puede hacer una vez."),
+        ["p0InitialQueued"] = L.T("Envoi unique en cours.", "One-time sync being sent.", "Envío único en curso."),
+        ["p0InitialDone"] = L.T("Fait : les coffres comptés avant ont été ajoutés.", "Done: the chests counted before were added.", "Hecho: se añadieron los cofres contados antes."),
+        ["p0SwitchConfirm"] = L.T("{0} pas encore envoyé(s) à la chasse actuelle seront abandonnés. Changer de chasse ?", "{0} not sent yet to the current hunt will be dropped. Switch hunts?", "{0} aún no enviados a la búsqueda actual se descartarán. ¿Cambiar de búsqueda?"),
     };
 
     public static string Html(string token) => Template.Replace("__TOKEN__", token).Replace("__FONT__", ReportWriter.FontFaceCss).Replace("__PENCIL__", ReportWriter.PencilIcon);
@@ -223,6 +263,9 @@ public static class GuiPage
         .notice .actions{margin-top:10px}
         .notice .nclose{flex:none;width:32px;height:32px;margin:-6px -8px 0 0;border:0;border-radius:6px;background:transparent;color:var(--cmuted);font-size:20px;line-height:1;cursor:pointer}
         .notice .nclose:hover{background:rgba(0,0,0,.06);color:var(--cink)}
+        .p0s{font-weight:600}.p0s.ok{color:#1d7a3c}.p0s.warn,.p0s.busy{color:#9a5b00}.p0s.err{color:var(--warn)}
+        .p0line{margin:0}
+        #p0hunt{max-width:min(560px,100%)}
         @media (max-width:640px){.row{flex-direction:column;align-items:flex-start}}
         /* The counter's own window: its title bar is drawn here (drag to move, double click to maximize). */
         .tbar{display:none}
@@ -347,6 +390,8 @@ public static class GuiPage
           if(S.overlay.running)h+=`<button class="b" onclick="api('toggleOverlayVisible')">${esc(S.overlay.visible?T.hideOverlay:T.showOverlay)}</button><button class="b" onclick="api('toggleOverlayLock')">${esc(S.overlay.locked?T.unlock:T.lock)}</button>`;
           if(!S.update&&S.updatesOn)h+=`<button class="b" onclick="api('checkUpdate')">${esc(T.checkUpdate)}</button>`;
           h+='</div>';
+          // Pokédex0, one line when connected (hunt names come from the network: escaped).
+          if(S.pokedex0&&S.pokedex0.home)h+=`<p class="note p0line"><span class="p0s ${esc(S.pokedex0.status.kind)}">●</span> ${esc(S.pokedex0.home)}</p>`;
           return h;
         }
         function overlay(T){
@@ -369,8 +414,52 @@ public static class GuiPage
             ${s.canStartWithFortnite?row(esc(T.withFortnite),esc(T.withFortniteHelp),sw('wf',s.startWithFortnite,'startWithFortnite')):''}
             ${row(esc(T.updates),'',sel('updateMode',s.updateMode,[['prompt',T.upPrompt],['auto',T.upAuto],['off',T.upOff]]))}
             <div class="row"><div style="flex:1"><div class="t">${esc(T.demos)}</div>${s.demosExists?'':`<div class="h">${esc(T.demosMissing)}</div>`}<div class="actions" style="margin-top:6px"><input type="text" id="demos" value="${esc(s.demos)}"><button class="b" onclick="api('demosFolder',$('#demos').value)">${esc(T.save)}</button></div></div></div></div>`;
-          return h;
+          return h+p0card(T);
         }
+        // Pokédex0. Hunt names, user names and messages come from the network: every value is escaped, and none is ever
+        // written into an inline handler (the browser decodes &#39; back into a quote before running it). The handlers
+        // read the hunt id from the element (this.value) or the state; the counter checks it again (UUID of the list).
+        const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+        function p0card(T){
+          const P=S.pokedex0;if(!P)return '';
+          let h='';
+          if(!P.connected){
+            const btn=`<button class="b main" onclick="p0connect()">${esc(P.reconnect?T.p0SignIn:T.p0Connect)}</button>`;
+            h+=row(esc('Pokédex0'),P.reconnect?`<span class="p0s warn">${esc(P.status.text)}</span>`:esc(T.p0Intro),P.waiting?`<div class="actions"><button class="b" onclick="api('pokedex0Cancel')">${esc(T.p0Cancel)}</button>${btn}</div>`:btn);
+            if(P.waiting)h+=`<p class="note" style="color:var(--cmuted);margin:8px 0 0">${esc(T.p0Waiting)}</p>`;
+            return `<section><h2 class="pirate">Pokédex0</h2><div class="card">${h}</div></section>`;
+          }
+          h+=row(esc(P.user?fmt(T.p0As,P.user):T.p0AsUnknown),'',`<button class="b danger" onclick="p0disconnect()">${esc(T.p0Disconnect)}</button>`);
+          const cur=P.hunt?P.hunt.id:'';
+          let pick;
+          if(!P.huntsLoaded&&P.huntsLoading)pick=`<span class="note" style="color:var(--cmuted)">${esc(T.p0Loading)}</span>`;
+          else if(!P.huntsLoaded&&P.huntsFailed)pick=`<span class="note" style="color:var(--cmuted)">${esc(T.p0LoadFailed)}</span>`;
+          else if(!P.hunts.length&&!cur)pick=`<span class="note" style="color:var(--cmuted)">${esc(T.p0NoHunts)}</span>`;
+          else pick=`<select id="p0hunt" aria-label="${esc(T.p0Hunt)}" onchange="p0pick(this)">${cur?'':`<option value="" selected disabled>${esc(T.p0Choose)}</option>`}${P.hunt&&!P.hunt.listed?`<option value="${esc(cur)}" selected disabled>${esc((P.hunt.name||'')+' '+T.p0Unlisted)}</option>`:''}${P.hunts.map(x=>`<option value="${esc(x.id)}" ${x.id===cur?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`;
+          const info=P.hunt?`<div class="h">${esc(P.hunt.details)}${P.hunt.profile?' · '+esc(fmt(T.p0Profile,P.hunt.profile)):''}</div>`:'';
+          h+=`<div class="row"><div style="flex:1"><div class="t">${esc(T.p0Hunt)}</div><div class="h">${esc(T.p0HuntHelp)}</div>${info}<div class="actions" style="margin-top:6px">${pick}<button class="b" onclick="api('pokedex0Hunts')">${esc(T.p0Refresh)}</button></div></div></div>`;
+          if(P.hunt){
+            const retry=P.paused||P.status.kind==='warn'?`<button class="b" onclick="api('pokedex0Retry')">${esc(T.p0Retry)}</button>`:'';
+            h+=row(esc(T.p0Status),`<span class="p0s ${esc(P.status.kind)}">${esc(P.status.text)}</span>`,retry);
+            if(P.initial)h+=row(esc(T.p0Initial),esc(fmt(T.p0InitialHelp,P.initial.chestsText,P.initial.matchesText)),`<button class="b main" onclick="p0initial()">${esc(fmt(T.p0InitialBtn,P.initial.chestsText))}</button>`);
+            else if(P.initialQueued)h+=row(esc(T.p0Initial),esc(T.p0InitialQueued),'');
+            else if(P.initialDone)h+=row(esc(T.p0Initial),esc(T.p0InitialDone),'');
+          }
+          return `<section><h2 class="pirate">Pokédex0</h2><div class="card">${h}</div></section>`;
+        }
+        async function p0connect(){const r=await api('pokedex0Connect');if(r&&r.error)alert(r.error)}
+        async function p0pick(el){
+          const P=S.pokedex0,id=el.value;el.blur();
+          if(!P||!UUID.test(id)){render(true);return}
+          if(P.hunt&&P.hunt.id!==id&&P.pending>0&&!confirm(fmt(S.txt.p0SwitchConfirm,P.pendingText))){render(true);return}
+          const r=await api('pokedex0Hunt',id);if(r&&r.error)alert(r.error)
+        }
+        async function p0initial(){
+          const P=S.pokedex0;if(!P||!P.initial)return;const n=P.initial.chests;
+          if(!confirm(fmt(S.txt.p0InitialConfirm,P.initial.chestsText,P.initial.matchesText)))return;
+          const r=await api('pokedex0InitialSync',n);if(r&&r.error)alert(r.error)
+        }
+        async function p0disconnect(){const P=S.pokedex0;if(!P||!confirm(fmt(S.txt.p0DisconnectConfirm,P.pendingText)))return;await api('pokedex0Disconnect')}
         // Chests added by hand (and the estimate from the Career matches): p = 's' in the settings, 'd' in the edit box.
         // The box starts empty each time: the number typed is added to what was already added, and each addition can be
         // undone with its cross (issue #27).

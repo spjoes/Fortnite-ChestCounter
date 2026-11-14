@@ -10,7 +10,8 @@ namespace ChestCounter;
 /// <summary>
 /// The graphical interface (prototype): a page in the look of the report, served by the counter itself on this PC only
 /// (127.0.0.1, random port) and shown in an app window of Edge or Chrome. The page reads the state every 2 seconds and
-/// sends the player's choices back; nothing leaves the PC.
+/// sends the player's choices back; nothing leaves the PC. One more page, /oauth/callback, receives the browser coming
+/// back from Pokédex0 (optional connection, see <see cref="Pokedex0Sync"/>).
 /// Protection: a random token in the address and in every request (another web page cannot guess it), and only
 /// requests whose Host is this address are answered (no DNS rebinding).
 /// </summary>
@@ -38,6 +39,12 @@ public sealed class GuiServer
     }
 
     public int Port { get; private set; }
+
+    /// <summary>
+    /// GET /oauth/callback: where the browser lands after Pokédex0 (no GUI token there; the Host check still applies).
+    /// Gets the query parameters, returns the static page to show.
+    /// </summary>
+    public Func<IReadOnlyDictionary<string, string>, string>? OAuthCallback { get; set; }
     public string Url => $"http://127.0.0.1:{Port}/?t={_token}";
 
     public void Start()
@@ -134,7 +141,14 @@ public sealed class GuiServer
                 var query = target.Contains('?') ? target[(target.IndexOf('?') + 1)..] : "";
                 var tokenOk = headers.GetValueOrDefault("x-token") == _token || query.Split('&').Contains("t=" + _token);
 
-                if (method == "GET" && path == "/" && tokenOk)
+                if (method == "GET" && path == "/oauth/callback" && OAuthCallback is { } callback)
+                {
+                    // The page never echoes the request: it is built from fixed texts only.
+                    var page = callback(ParseQuery(query));
+                    Write(stream, 200, "text/html; charset=utf-8", Encoding.UTF8.GetBytes(page),
+                        "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\r\nReferrer-Policy: no-referrer\r\n");
+                }
+                else if (method == "GET" && path == "/" && tokenOk)
                 {
                     Write(stream, 200, "text/html; charset=utf-8", Encoding.UTF8.GetBytes(GuiPage.Html(_token)));
                 }
@@ -233,10 +247,38 @@ public sealed class GuiServer
         return (first[0], first[1], headers, body);
     }
 
-    private static void Write(NetworkStream stream, int status, string type, byte[] content)
+    /// <summary>
+    /// Query parameters (decoded). A parameter given twice makes the whole query empty: an OAuth answer never repeats
+    /// one, so the callback is then refused (no state).
+    /// </summary>
+    public static Dictionary<string, string> ParseQuery(string query)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (query.Length > 8192)
+        {
+            return result;
+        }
+        static string Decode(string s)
+        {
+            try { return Uri.UnescapeDataString(s.Replace('+', ' ')); } catch { return ""; }
+        }
+        foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = part.IndexOf('=');
+            var key = Decode(eq < 0 ? part : part[..eq]);
+            var value = eq < 0 ? "" : Decode(part[(eq + 1)..]);
+            if (!result.TryAdd(key, value))
+            {
+                return new Dictionary<string, string>(StringComparer.Ordinal);
+            }
+        }
+        return result;
+    }
+
+    private static void Write(NetworkStream stream, int status, string type, byte[] content, string extraHeaders = "")
     {
         var reason = status switch { 200 => "OK", 403 => "Forbidden", _ => "Not Found" };
-        var head = $"HTTP/1.1 {status} {reason}\r\nContent-Type: {type}\r\nContent-Length: {content.Length}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n";
+        var head = $"HTTP/1.1 {status} {reason}\r\nContent-Type: {type}\r\nContent-Length: {content.Length}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n{extraHeaders}Connection: close\r\n\r\n";
         stream.Write(Encoding.ASCII.GetBytes(head));
         stream.Write(content);
     }
