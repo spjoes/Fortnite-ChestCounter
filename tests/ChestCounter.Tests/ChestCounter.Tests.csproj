@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Tests of the Pokédex0 connection. Not part of ChestCounter.exe: build.bat and the workflow publish
+       src/ChestCounter/ChestCounter.csproj only. Run: dotnet test tests/ChestCounter.Tests -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The counter uses the Windows desktop runtime (WinForms, DPAPI): the tests run on it too. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>ChestCounter.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ChestCounter\ChestCounter.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\mock-pokedex0\server.mjs" Link="mock-pokedex0\server.mjs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
