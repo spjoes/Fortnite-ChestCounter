@@ -133,6 +133,10 @@ public static class GuiPage
         ["offline"] = L.T("Le compteur ne répond plus (fermé ?). Relance ChestCounter.exe.", "The counter does not answer (closed?). Start ChestCounter.exe again.", "El contador no responde (¿cerrado?). Vuelve a abrir ChestCounter.exe."),
         ["footer"] = L.T("Fermer cette fenêtre ne coupe pas le compteur.", "Closing this window does not stop the counter.", "Cerrar esta ventana no detiene el contador."),
         // Pokédex0 (optional connection to a shiny-hunt tracker)
+        ["p0OddsToggle"] = L.T("Afficher la chance Pokédex0", "Show Pokédex0 chance", "Mostrar la probabilidad de Pokédex0"),
+        ["p0OddsHelp"] = L.T("Ta chance d'avoir le shiny dans la chasse Pokédex0 choisie (Réglages → Pokédex0), calculée comme sur le site d'après ses chances personnalisées ; en multijoueur, aussi celle de l'équipe. Rien n'est affiché si la chasse n'a pas de chances personnalisées.",
+            "Your chance of the shiny in the chosen Pokédex0 hunt (Settings → Pokédex0), computed like the website from its custom odds; in a multiplayer hunt, the team's chance too. Nothing is shown when the hunt has no custom odds.",
+            "Tu probabilidad de conseguir el shiny en la búsqueda de Pokédex0 elegida (Ajustes → Pokédex0), calculada como en la web a partir de sus probabilidades personalizadas; en multijugador, también la del equipo. No se muestra nada si la búsqueda no tiene probabilidades personalizadas."),
         ["p0Intro"] = L.T("Facultatif : connecte ton compte Pokédex0 (suivi de chasses aux shiny) et choisis une chasse. Chaque partie comptée ensuite y ajoute ses coffres (les tiens, pas ceux de l'équipe). Rien n'est envoyé tant que tu ne te connectes pas.",
             "Optional: connect your Pokédex0 account (shiny-hunt tracker) and choose a hunt. Each match counted from then on adds its chests to it (yours, not the squad's). Nothing is sent until you connect.",
             "Opcional: conecta tu cuenta de Pokédex0 (seguimiento de búsquedas de shiny) y elige una búsqueda. Cada partida contada después le añade sus cofres (los tuyos, no los del equipo). No se envía nada mientras no te conectes."),
@@ -399,7 +403,8 @@ public static class GuiPage
           let h=`<div class="card">${row(esc(T.inGame),esc(T.inGameHelp),sw('ov',o.show,'showOverlay'))}
             ${row(esc(T.style),'',sel('overlayStyle',o.style,[['hud',T.hud],['classic',T.classic]]))}
             ${o.show?row(esc(T.size),'',sel('overlaySize',o.size,o.sizes.map(x=>[x,x+' %'])))+row(esc(T.opacity),'',sel('overlayOpacity',o.opacity,o.opacities.map(x=>[x,x+' %']))):''}
-            ${row(esc(T.squadToggle)+`<span class="badge" title="${esc(T.inaccurateWhy)}">${esc(T.inaccurate)}</span>`,esc(T.squadHelp)+'<br>'+esc(T.inaccurateWhy),sw('sq',o.squad,'showSquadTotal'))}</div>
+            ${row(esc(T.squadToggle)+`<span class="badge" title="${esc(T.inaccurateWhy)}">${esc(T.inaccurate)}</span>`,esc(T.squadHelp)+'<br>'+esc(T.inaccurateWhy),sw('sq',o.squad,'showSquadTotal'))}
+            ${row(esc(T.p0OddsToggle),esc(T.p0OddsHelp)+(o.pokedex0Line?`<br><b>${esc(o.pokedex0Line)}</b>`:''),sw('p0o',o.pokedex0,'showPokedex0Odds'))}</div>
             <section><h2 class="pirate">${esc(T.obs)}</h2><div class="card"><span class="path">${esc(S.paths.overlay)}</span><p class="note" style="color:var(--cmuted)">${esc(T.obsSteps)}</p>
             <div class="actions"><button class="b main" onclick="copyObs()">${esc(copied?T.copied:T.copy)}</button><button class="b" onclick="window.open('/overlay?t='+TOKEN,'_blank')">${esc(T.preview)}</button></div></div></section>`;
           return h;

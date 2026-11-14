@@ -178,14 +178,35 @@ if (previewPath != null)
         NativeOverlay.SetStyle(style);
         foreach (var (suffix, live, inProgress) in new[] { ("-idle", (MatchRecord?)null, false), ("-inprogress", null, true), ("-live", fakeLive, true) })
         {
-            NativeOverlay.Update(OverlayModel.Build(previewData, live, inProgress, config.ShowSquadTotal));
+            var previewView = OverlayModel.Build(previewData, live, inProgress, config.ShowSquadTotal, PreviewOdds());
+            NativeOverlay.Update(previewView);
             Thread.Sleep(600);
             var name = Path.GetFileNameWithoutExtension(previewPath) + (style == "classic" ? "" : "-" + style) + suffix + ".png";
             var file = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(previewPath)) ?? ".", name);
             Console.WriteLine(NativeOverlay.Snapshot(file) ? L.T($"Aperçu : {file}", $"Preview: {file}", $"Vista previa: {file}") : L.T($"Échec de la capture : {file}", $"Capture failed: {file}", $"Error de captura: {file}"));
+            if (suffix == "-idle")
+            {
+                // The OBS page of this style too, with the same figures.
+                ReportWriter.OverlayStyle = style;
+                File.WriteAllText(Path.ChangeExtension(file, ".html"), ReportWriter.Overlay(previewView));
+            }
         }
     }
     return 0;
+}
+
+// Development (previews only): CHESTCOUNTER_PREVIEW_POKEDEX0="multi,137500,1200,2234" or "solo,137500,1200" draws the
+// Pokédex0 chance as for a linked hunt with these odds and counts (own, team). Never read outside --overlay-preview.
+static string? PreviewOdds()
+{
+    var spec = Environment.GetEnvironmentVariable("CHESTCOUNTER_PREVIEW_POKEDEX0")?.Split(',');
+    if (spec is not { Length: >= 3 } || !int.TryParse(spec[1], out var n) || !Pokedex0Odds.ValidDenominator(n) || !long.TryParse(spec[2], out var own))
+    {
+        return null;
+    }
+    var multi = spec[0] == "multi";
+    var team = multi && spec.Length >= 4 && long.TryParse(spec[3], out var t) ? t : own;
+    return Pokedex0Odds.Line(new Pokedex0OddsSnapshot(n, multi, own, team));
 }
 
 LowerPriority();
@@ -200,6 +221,8 @@ var pokedex0 = new Pokedex0Sync(store.Folder, Pokedex0Endpoint.FromEnvironment()
 pokedex0.Log = (text, color) => { Console.ForegroundColor = color; Console.WriteLine(text); Console.ResetColor(); };
 tracker.MatchRecorded = pokedex0.OnMatch;
 pokedex0.Reconcile(data); // a match saved right before a crash or a quit is caught up
+var pokedex0Changed = false; // set by the Pokédex0 thread: the overlay's chance may have changed
+string? overlayOdds = null;  // the chance line the overlay shows now
 
 store.SaveConfig(config);
 
@@ -317,7 +340,7 @@ if (backlog > 1)
     ReportWriter.Progress = new ScanProgress(0, backlog);
 }
 ReportWriter.WriteAll(store, config, data);
-UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive);
+UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive, OverlayOdds());
 
 // The first time, the pictures of the treasure collection (always: the report needs them). Then a new version on
 // GitHub (checked in the background, unless the updates are off).
@@ -364,6 +387,7 @@ var guiActions = new ConcurrentQueue<Action>();
 object? lastGuiState = null;
 var welcome = firstRun;
 // Lines of the Pokédex0 thread: written by the main loop (the activity log is not shared between threads).
+pokedex0.Changed = () => { Volatile.Write(ref pokedex0Changed, true); wake.Set(); };
 pokedex0.Log = (text, color) =>
 {
     guiActions.Enqueue(() => { Console.ForegroundColor = color; Console.WriteLine(text); Console.ResetColor(); });
@@ -470,7 +494,7 @@ while (!quit)
             AnnounceNewProfiles();
             // Match in progress: re-read the replay being recorded (throttled inside).
             tracker.UpdateLive();
-            UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive);
+            UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive, OverlayOdds());
         }
         catch (Exception ex)
         {
@@ -497,6 +521,16 @@ while (!quit)
     {
         reportWeek = shownWeek;
         ReportWriter.WriteAll(store, config, data);
+    }
+
+    // Pokédex0: a match acknowledged, the hunt read again (friends played)... The overlay follows its chance.
+    if (Volatile.Read(ref pokedex0Changed))
+    {
+        pokedex0Changed = false;
+        if (OverlayOddsLine() != overlayOdds)
+        {
+            UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive, OverlayOdds());
+        }
     }
 
     if (Volatile.Read(ref imagesAdded))
@@ -598,7 +632,7 @@ void StartOverlay()
             config.OverlayLocked = locked;
             try { store.SaveConfig(config); } catch { /* ignore */ }
         });
-    UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive);
+    UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive, OverlayOdds());
 }
 
 void ToggleOverlay()
@@ -967,6 +1001,9 @@ object BuildGuiState()
             sizes = OverlayAppearance.Sizes,
             opacities = OverlayAppearance.Opacities,
             squad = config.ShowSquadTotal,
+            pokedex0 = config.ShowPokedex0Odds,
+            // What the line shows now (also when switched off, as a preview), or null.
+            pokedex0Line = pokedex0.OddsSnapshot() is { } p0odds ? Pokedex0Odds.Line(p0odds) : null,
         },
         profiles = Profiles.List(data).Select(p => new { key = p.Key, name = p.Name, matches = L.N(p.Matches), chests = L.N(p.Chests) }).ToList(),
         profileKey = profile?.Key,
@@ -1053,6 +1090,7 @@ object? RunGuiAction(string name, System.Text.Json.JsonElement value)
         case "overlaySize": config.OverlaySize = OverlayAppearance.ClampSize(Int()); ApplyOverlayAppearance(); break;
         case "overlayOpacity": config.OverlayOpacity = OverlayAppearance.ClampOpacity(Int()); ApplyOverlayAppearance(); break;
         case "showSquadTotal": config.ShowSquadTotal = Bool(); break;
+        case "showPokedex0Odds": config.ShowPokedex0Odds = Bool(); break;
         case "showSquadInReport": config.ShowSquadInReport = Bool(); store.SaveConfig(config); settingsChanged = false; break;
         case "showTeamInReport": config.ShowTeamTreasuresInReport = Bool(); store.SaveConfig(config); settingsChanged = false; break;
         case "language":
@@ -1239,7 +1277,7 @@ object? RunGuiAction(string name, System.Text.Json.JsonElement value)
     {
         store.SaveConfig(config);
         ReportWriter.WriteAll(store, config, data);
-        UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive);
+        UpdateOverlay(store, config, data, tracker.LiveMatch, tracker.IsLive, OverlayOdds());
     }
     return result;
 }
@@ -1256,10 +1294,14 @@ static bool AcquireInstance(Mutex m, TimeSpan wait)
     }
 }
 
-static void UpdateOverlay(Store store, Config config, TrackerData d, MatchRecord? live, bool inProgress)
+// The Pokédex0 chance line of the overlay (null: switched off, not connected, no hunt or no custom odds), remembered as shown.
+string? OverlayOdds() => overlayOdds = OverlayOddsLine();
+string? OverlayOddsLine() => config.ShowPokedex0Odds && pokedex0.OddsSnapshot() is { } odds ? Pokedex0Odds.Line(odds) : null;
+
+static void UpdateOverlay(Store store, Config config, TrackerData d, MatchRecord? live, bool inProgress, string? odds)
 {
     ReportWriter.OverlayStyle = config.OverlayStyle;
-    var view = OverlayModel.Build(Profiles.View(d, config), live, inProgress, config.ShowSquadTotal);
+    var view = OverlayModel.Build(Profiles.View(d, config), live, inProgress, config.ShowSquadTotal, odds);
     ReportWriter.WriteOverlay(store, view);
     if (OperatingSystem.IsWindows() && NativeOverlay.IsRunning)
     {

@@ -23,7 +23,22 @@ public static class OverlayModel
 
     /// <param name="live">Figures of the match in progress, when the replay could be read (null otherwise).</param>
     /// <param name="inProgress">A match is being recorded (even if its figures are not readable yet).</param>
-    public static OverlayView Build(TrackerData d, MatchRecord? live, bool inProgress, bool showSquad = true)
+    /// <param name="odds">The Pokédex0 chance line, or null (not connected, no custom odds, switched off).</param>
+    public static OverlayView Build(TrackerData d, MatchRecord? live, bool inProgress, bool showSquad = true, string? odds = null)
+    {
+        var view = BuildCore(d, live, inProgress, showSquad);
+        if (odds == null)
+        {
+            return view;
+        }
+        // Last line of both styles: a row of the classic card, a line under the treasures of the HUD.
+        return view with { Odds = odds, Rows = view.Rows.Append(new OverlayRow(OddsLabel, odds, Odds: true)).ToList() };
+    }
+
+    /// <summary>Label of the Pokédex0 chance row (classic style).</summary>
+    public const string OddsLabel = "Pokédex0";
+
+    private static OverlayView BuildCore(TrackerData d, MatchRecord? live, bool inProgress, bool showSquad)
     {
         var liveChests = live?.ChestsOpened ?? 0;
         var liveTreasures = live?.TreasureFinds.Count ?? 0;

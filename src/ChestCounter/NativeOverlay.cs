@@ -10,12 +10,14 @@ namespace ChestCounter;
 /// </summary>
 /// <summary>What the overlay shows. <see cref="Current"/> null = no match in progress.</summary>
 /// <param name="Detail">Optional secondary text drawn small and grey after the value.</param>
-public sealed record OverlayRow(string Label, string Value, bool Treasure = false, string? Detail = null);
+/// <param name="Odds">The Pokédex0 chance line (drawn in its own color).</param>
+public sealed record OverlayRow(string Label, string Value, bool Treasure = false, string? Detail = null, bool Odds = false);
 
 /// <param name="Current">Right counter (match in progress, or last match); null = "—".</param>
 /// <param name="CurrentLive">Right counter is the match in progress (green).</param>
 /// <param name="Badge">Header badge ("● EN DIRECT" / "● LIVE", "● PARTIE EN COURS" / "● MATCH IN PROGRESS") or null.</param>
-public sealed record OverlayView(string Total, string? Current, string CurrentCaption, bool CurrentLive, string? Badge, IReadOnlyList<OverlayRow> Rows, string Treasures = "0", string Session = "0", string? Last = null, string? Squad = null);
+/// <param name="Odds">The Pokédex0 chance ("1 in 137,500 · You 0.87% · Team 1.61%"), or null: not shown.</param>
+public sealed record OverlayView(string Total, string? Current, string CurrentCaption, bool CurrentLive, string? Badge, IReadOnlyList<OverlayRow> Rows, string Treasures = "0", string Session = "0", string? Last = null, string? Squad = null, string? Odds = null);
 
 [SupportedOSPlatform("windows")]
 public static class NativeOverlay
@@ -35,6 +37,10 @@ public static class NativeOverlay
     private static volatile bool _locked;
     private static bool _offscreen;
     private static int _stableW;
+    private static volatile bool _resetWidth;
+
+    /// <summary>Color of the Pokédex0 chance line (both styles): a light blue, apart from the chests and treasures.</summary>
+    private static uint OddsColor => Rgb(150, 212, 255);
     private static RECT _lockRect; // lock button, client coordinates
     private static IntPtr _fontIcon;
     private static WndProcDelegate? _wndProc; // keep the delegate alive
@@ -153,6 +159,10 @@ public static class NativeOverlay
     /// <summary>Replaces what is shown. The window resizes itself to fit.</summary>
     public static void Update(OverlayView view)
     {
+        if ((view.Odds == null) != (_view.Odds == null))
+        {
+            _resetWidth = true; // the Pokédex0 line came or went: the width is measured again (it may shrink)
+        }
         _view = view;
         if (_hwnd != IntPtr.Zero)
         {
@@ -443,6 +453,11 @@ public static class NativeOverlay
         }
         int S(int v) => (int)Math.Round(v * _scale);
         var v = _view;
+        if (_resetWidth)
+        {
+            _resetWidth = false;
+            _stableW = 0;
+        }
         var hdc = GetDC(hwnd);
         try
         {
@@ -583,7 +598,7 @@ public static class NativeOverlay
                 {
                     Text(hdc, _fontLabel, Rgb(130, 130, 142), row.Label, x, y, x + _labelW, y + _rowH);
                     var vx = x + _labelW + S(12);
-                    Text(hdc, _fontSmall, row.Treasure ? Rgb(196, 160, 255) : Rgb(226, 226, 232), row.Value, vx, y, right + S(4), y + _rowH);
+                    Text(hdc, _fontSmall, row.Treasure ? Rgb(196, 160, 255) : row.Odds ? OddsColor : Rgb(226, 226, 232), row.Value, vx, y, right + S(4), y + _rowH);
                     if (row.Detail != null)
                     {
                         var dx = vx + TextWidth(hdc, _fontSmall, row.Value, out _) + S(6);
@@ -617,6 +632,11 @@ public static class NativeOverlay
     private static void RelayoutStyled(IntPtr hwnd)
     {
         var v = _view;
+        if (_resetWidth)
+        {
+            _resetWidth = false;
+            _stableW = 0;
+        }
         var hdc = GetDC(hwnd);
         int w, h;
         try
@@ -632,10 +652,11 @@ public static class NativeOverlay
                 TextWidth(hdc, _fontHudSmall, sessionLabel + Sep + v.Session, out _),
                 v.Squad != null ? TextWidth(hdc, _fontHudSmall, OverlayModel.SquadLabel + Sep + v.Squad, out _) : 0,
                 Sc(22) + TextWidth(hdc, _fontHudSmall, v.Treasures, out _),
+                v.Odds != null ? TextWidth(hdc, _fontHudSmall, v.Odds, out _) : 0,
             }.Max();
             // Room for the in-match dot is always kept: the overlay does not widen when a match starts.
             w = lockW + pad + Math.Max(Sc(18) + Sc(26) + Sc(8) + bigW, rowsW) + pad + Sc(14);
-            h = pad + _hudBigH + (v.Squad != null ? 4 : 3) * (_hudSmallH + Sc(2)) + pad;
+            h = pad + _hudBigH + ((v.Squad != null ? 4 : 3) + (v.Odds != null ? 1 : 0)) * (_hudSmallH + Sc(2)) + pad;
             w = Math.Max(_stableW, w);
             _stableW = w;
             _lockRect = new RECT { Left = Sc(2), Top = 0, Right = lockW, Bottom = h };
@@ -826,6 +847,13 @@ public static class NativeOverlay
         var tw = TextWidth(hdc, _fontHudSmall, v.Treasures, out _);
         Outlined(hdc, _fontHudSmall, Rgb(214, 190, 255), v.Treasures, left, y, right, y + rowH, DT_RIGHT, thin: true);
         Star(hdc, right - tw - Sc(12), y + rowH / 2, Sc(8), Rgb(196, 155, 255), ink);
+
+        // Pokédex0: the chance of the linked hunt (custom odds), last line.
+        if (v.Odds != null)
+        {
+            y += rowH + Sc(2);
+            Outlined(hdc, _fontHudSmall, OddsColor, v.Odds, left, y, right, y + rowH, DT_RIGHT, thin: true);
+        }
     }
 
     private static uint Rgb(byte r, byte g, byte b) => (uint)(r | (g << 8) | (b << 16));

@@ -1263,12 +1263,14 @@ public static class ReportWriter
             .sep{opacity:.9}
             .dot{width:13px;height:13px;border-radius:50%;background:#ff3b30;box-shadow:0 0 0 2px #0b0f18;flex:none}
             .t{color:#d6beff}.t .star{color:#c49bff}
+            .o b{color:#96d4ff}
             </style></head><body>
             <div class="total{{(v.CurrentLive && v.Current is { } c && c != "…" ? " live" : "")}}">{{(v.CurrentLive ? "<i class=\"dot\"></i>" : "")}}<svg viewBox="0 0 30 26" aria-hidden="true"><rect x="2" y="10" width="26" height="14" rx="2" fill="#ffd23f" stroke="#0b0f18" stroke-width="2.5"/><path d="M2 12 Q15 -2 28 12" fill="#e0a526" stroke="#0b0f18" stroke-width="2.5"/><rect x="12.5" y="12" width="5" height="6" rx="1" fill="#0b0f18"/></svg>{{H(v.Total)}}</div>
             {{state}}
             {{Row(L.T("Session", "Session", "Sesión"), v.Session, "")}}
             {{squad}}
             <div class="r t"><span class="star">★</span><b>{{H(v.Treasures)}}</b></div>
+            {{(v.Odds != null ? $"<div class=\"r o\"><b>{H(v.Odds)}</b></div>" : "")}}
             </body></html>
             """;
     }
@@ -1279,7 +1281,7 @@ public static class ReportWriter
         var rows = new StringBuilder();
         foreach (var r in v.Rows)
         {
-            rows.Append($"<div class=\"row{(r.Treasure ? " t" : "")}\"><span>{H(r.Label)}</span><b>{H(r.Value)}{(r.Detail != null ? $" <small>{H(r.Detail)}</small>" : "")}</b></div>");
+            rows.Append($"<div class=\"row{(r.Treasure ? " t" : r.Odds ? " o" : "")}\"><span>{H(r.Label)}</span><b>{H(r.Value)}{(r.Detail != null ? $" <small>{H(r.Detail)}</small>" : "")}</b></div>");
         }
         return $$"""
             <!doctype html><html lang="{{L.Code}}"><head><meta charset="utf-8"><meta http-equiv="refresh" content="5">
@@ -1297,7 +1299,7 @@ public static class ReportWriter
             .cap{font-size:11px;font-weight:600;color:#82828e}
             .rows{border-top:1px solid #2c2c34;padding-top:8px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
             .row{display:contents}.row span{font-size:13px;font-weight:600;color:#82828e}.row b{font-weight:500}
-            .row.t b{color:#c4a0ff}.row small{font-size:11px;font-weight:600;color:#82828e}
+            .row.t b{color:#c4a0ff}.row.o b{color:#96d4ff}.row small{font-size:11px;font-weight:600;color:#82828e}
             </style></head><body><div class="box">
             <div class="head"><span>{{L.T("COFFRES", "CHESTS", "COFRES")}}</span>{{(v.Badge != null ? $"<span class=\"live\">{H(v.Badge)}</span>" : "")}}</div>
             <div class="counters">

@@ -215,6 +215,10 @@ public sealed class Config
     /// <summary>Show the squad total (the player's chests + those of all teammates) on the overlay and the home screen.</summary>
     public bool ShowSquadTotal { get; set; }
 
+    /// <summary>Show the chance of the linked Pokédex0 hunt (custom odds) on the overlay. On by default; nothing is shown
+    /// without a connection and a hunt with custom odds.</summary>
+    public bool ShowPokedex0Odds { get; set; } = true;
+
     /// <summary>Show the squad total in the report too (tile and column of the latest matches). Off by default, like the overlay's.</summary>
     public bool ShowSquadInReport { get; set; }
 

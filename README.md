@@ -157,6 +157,8 @@ What is **not** sent: the matches already counted when you pick the hunt (they w
 
 Nothing is lost when you are offline or the counter is closed: chests waiting to be sent are kept in the data folder and sent later. Each match has its own fixed operation id, so a retry can never count it twice. If the hunt is completed, abandoned or deleted on Pokédex0, sending pauses and the counter asks you to pick another hunt (picking another hunt drops the chests still waiting for the previous one, and says how many). **Disconnect** forgets the connection, the hunt and what was waiting; you can also remove the app on Pokédex0 under *Settings → Connected Apps*.
 
+**Your chance on the overlay.** When the linked hunt has custom odds (and no verified game method), the overlay (in game and the OBS page, both styles) shows one more line, computed exactly like pokedex0.com: `1 in 137,500 · 0.87%` for a solo hunt, `1 in 137,500 · You 0.87% · Team 1.61%` for a multiplayer hunt (your own count, and the hunt's total). It uses Pokédex0's counts (so chests logged before connecting count too) plus your chests not sent yet, and reads the hunt again every 5 minutes while connected, so friends' chests show up in the team chance. **Overlay → Show Pokédex0 chance** turns it off.
+
 What the connection can do on Pokédex0: read your username and your hunts, and add to a hunt counter. It cannot create, edit, complete or delete hunts. The sign-in tokens are stored encrypted for your Windows account (`pokedex0-auth.bin`), never in `config.json`, the activity or `errors.log`. No request is made to Pokédex0 while you are not connected. Technical details: [`docs/pokedex0-integration.md`](docs/pokedex0-integration.md).
 
 ## Your data
