@@ -29,7 +29,7 @@ Fortnite puede grabar un **archivo de repetición** de cada partida en tu PC. Ch
 - ✅ **Solo lee las repeticiones**: los archivos `.replay` que Fortnite escribe en `%LOCALAPPDATA%\FortniteGame\Saved\Demos`. Se abren en solo lectura y nunca se modifican.
 - ✅ **Ninguna modificación del juego**: no se toca nada en la carpeta de instalación de Fortnite, no se añade ni cambia ningún archivo.
 - ✅ **Ningún acceso a la memoria del juego**: la herramienta nunca lee, escribe ni inyecta nada en el proceso de Fortnite. No interactúa en absoluto con el juego en marcha.
-- ✅ **No se envía ningún dato**: sin inicio de sesión, sin acceso a tu cuenta de Epic, sin telemetría. Solo se conecta a GitHub, para descargar: los datos de la búsqueda del tesoro (semanas, probabilidades, horas del tesoro, unos pocos kilobytes en cada inicio), las imágenes de la colección de tesoros (una sola vez) y, salvo que lo desactives, una nueva versión de la herramienta. No se envía nada.
+- ✅ **No se envía ningún dato** (salvo si activas Pokédex0): sin acceso a tu cuenta de Epic, sin telemetría. Solo se conecta a GitHub, para descargar: los datos de la búsqueda del tesoro (semanas, probabilidades, horas del tesoro, unos pocos kilobytes en cada inicio), las imágenes de la colección de tesoros (una sola vez) y, salvo que lo desactives, una nueva versión de la herramienta. No se envía nada. La única excepción es la **[conexión con Pokédex0](#pokédex0-opcional)**, desactivada mientras no conectes tu cuenta: entonces se envía el número de cofres de cada nueva partida a la búsqueda de Pokédex0 que elegiste, y nada más.
 - ✅ **Nada abierto a la red**: la ventana muestra una página que el contador sirve solo a tu PC (`127.0.0.1`, con una clave aleatoria).
 - ✅ **Ligero**: funciona con prioridad baja (y en «modo de eficiencia» en Windows 11), duerme entre partidas, y el motor de visualización de la ventana se detiene cuando está en el área de notificación.
 
@@ -143,6 +143,10 @@ Las repeticiones guardadas en un PC suelen ser de su jugador: **ningún nombre q
 ## Actualizaciones
 
 Al iniciarse, el contador comprueba en GitHub si hay una nueva versión. Si la hay, el Inicio muestra **sus novedades en tu idioma**, con **Instalar**: se descarga, se verifica y el contador se reinicia. Tu historial y tus ajustes se conservan. Después de la actualización, el Inicio muestra una vez lo que ha cambiado. **Buscar actualizaciones** vuelve a consultar GitHub en cualquier momento. En los ajustes puedes elegir *propuestas* (por defecto), *instaladas automáticamente* (solo entre dos partidas) o *desactivadas* (sin comprobación).
+
+## Pokédex0 (opcional)
+
+[Pokédex0](https://www.pokedex0.com) es una web de seguimiento de búsquedas de shiny donde se pueden seguir los cofres de Fortnite como una búsqueda. **Ajustes → Pokédex0 → Conectar con Pokédex0** abre tu navegador habitual para autorizar *Fortnite Chest Counter*; luego elige una de tus búsquedas activas: cada nueva partida le añade sus cofres (los tuyos, no los del equipo). Las partidas ya contadas y los cofres añadidos a mano no se envían; «Cofres contados antes» los añade una sola vez, tras mostrarte el número exacto. Sin conexión no se pierde nada (se envía más tarde, nunca dos veces). Los tokens de conexión se guardan cifrados para tu cuenta de Windows (`pokedex0-auth.bin`), la búsqueda y los cofres pendientes están en `pokedex0.json`; **Desconectar** lo borra todo. No se hace ninguna petición a Pokédex0 mientras no estés conectado. Detalles técnicos (en inglés): [`docs/pokedex0-integration.md`](docs/pokedex0-integration.md).
 
 ## Tus datos
 

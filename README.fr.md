@@ -29,7 +29,7 @@ Fortnite peut enregistrer un **fichier replay** de chaque partie sur ton PC. Le 
 - ✅ **Lit uniquement les replays** : les fichiers `.replay` que Fortnite écrit dans `%LOCALAPPDATA%\FortniteGame\Saved\Demos`. Ils sont ouverts en lecture seule, jamais modifiés.
 - ✅ **Aucune modification du jeu** : rien n'est touché dans le dossier d'installation de Fortnite, aucun fichier n'est ajouté ni changé.
 - ✅ **Aucun accès à la mémoire du jeu** : l'outil ne lit, n'écrit et n'injecte jamais rien dans le processus Fortnite. Il n'interagit pas du tout avec le jeu en cours.
-- ✅ **Aucune donnée envoyée** : pas de connexion, pas d'accès à ton compte Epic, pas de télémétrie. Il ne se connecte qu'à GitHub, pour télécharger : les données de la chasse au trésor (semaines, cotes, heures du trésor, quelques kilo-octets à chaque démarrage), les images de la collection de trésors (une seule fois) et, sauf si tu le désactives, une nouvelle version de l'outil. Rien n'est envoyé.
+- ✅ **Aucune donnée envoyée** (sauf si tu actives Pokédex0) : pas d'accès à ton compte Epic, pas de télémétrie. Il ne se connecte qu'à GitHub, pour télécharger : les données de la chasse au trésor (semaines, cotes, heures du trésor, quelques kilo-octets à chaque démarrage), les images de la collection de trésors (une seule fois) et, sauf si tu le désactives, une nouvelle version de l'outil. Rien n'est envoyé. Seule exception, la **[connexion Pokédex0](#pokédex0-facultatif)**, désactivée tant que tu ne connectes pas ton compte : le nombre de coffres de chaque nouvelle partie est alors envoyé à la chasse Pokédex0 que tu as choisie, et rien d'autre.
 - ✅ **Rien d'ouvert sur le réseau** : la fenêtre affiche une page que le compteur sert à ton PC uniquement (`127.0.0.1`, avec une clé aléatoire).
 - ✅ **Léger** : tourne en priorité basse (et en « mode efficacité » sur Windows 11), dort entre les parties, et le moteur d'affichage de la fenêtre est arrêté quand elle est dans la zone de notification.
 
@@ -143,6 +143,10 @@ Les replays enregistrés sur un PC sont normalement ceux de son joueur : **aucun
 ## Mises à jour
 
 Au démarrage, le compteur vérifie sur GitHub s'il existe une nouvelle version. Si oui, l'accueil affiche **ses nouveautés dans ta langue**, avec **Installer** : elle est téléchargée, vérifiée, et le compteur redémarre. Ton historique et tes réglages sont conservés. Après la mise à jour, l'accueil affiche une fois ce qui a changé. **Rechercher une mise à jour** interroge GitHub à tout moment. Dans les réglages, tu peux choisir *proposées* (par défaut), *installées automatiquement* (seulement entre deux parties) ou *désactivées* (aucune vérification).
+
+## Pokédex0 (facultatif)
+
+[Pokédex0](https://www.pokedex0.com) est un site de suivi de chasses aux shiny où l'on suit ses coffres Fortnite comme une chasse. **Réglages → Pokédex0 → Se connecter à Pokédex0** ouvre ton navigateur habituel pour autoriser *Fortnite Chest Counter* ; choisis ensuite une de tes chasses actives : chaque nouvelle partie y ajoute ses coffres (les tiens, pas ceux de l'équipe). Les parties déjà comptées et les coffres ajoutés à la main ne sont pas envoyés ; « Coffres comptés avant » les ajoute une seule fois, après t'avoir montré le nombre exact. Hors ligne, rien n'est perdu (envoyé plus tard, jamais en double). Les jetons de connexion sont chiffrés pour ton compte Windows (`pokedex0-auth.bin`), la chasse et les coffres en attente sont dans `pokedex0.json` ; **Se déconnecter** efface tout. Aucune requête n'est faite à Pokédex0 tant que tu n'es pas connecté. Détails techniques (en anglais) : [`docs/pokedex0-integration.md`](docs/pokedex0-integration.md).
 
 ## Tes données
 

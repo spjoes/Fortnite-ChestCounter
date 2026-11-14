@@ -29,7 +29,7 @@ Fortnite can record a **replay file** of every match on your PC. Chest Counter r
 - ✅ **Only reads replay files**: the `.replay` files Fortnite writes to `%LOCALAPPDATA%\FortniteGame\Saved\Demos`. They are opened read-only and never modified.
 - ✅ **No game modification**: nothing in the Fortnite install folder is touched, no file is added or changed.
 - ✅ **No access to the game's memory**: the tool never reads, writes or injects anything into the Fortnite process. It does not interact with the running game at all.
-- ✅ **No data sent**: no login, no access to your Epic account, no telemetry. It only goes online to GitHub, to download: the treasure hunt data (weeks, odds, Treasure Hours, a few kilobytes at each start), the pictures of the treasure collection (once) and, unless you turn it off, a new version of the tool. Nothing is sent.
+- ✅ **No data sent** (unless you turn on Pokédex0): no access to your Epic account, no telemetry. It only goes online to GitHub, to download: the treasure hunt data (weeks, odds, Treasure Hours, a few kilobytes at each start), the pictures of the treasure collection (once) and, unless you turn it off, a new version of the tool. Nothing is sent. The one exception is the **optional [Pokédex0 connection](#pokédex0-optional)**, off until you connect your account: then the number of chests of each new match is sent to the Pokédex0 hunt you picked, and nothing else.
 - ✅ **Nothing opened to the network**: the window shows a page that the counter serves to your PC only (`127.0.0.1`, with a random key).
 - ✅ **Lightweight**: runs at low priority (and in "efficiency mode" on Windows 11), sleeps between matches, and the window's display engine is stopped while the window is in the notification area.
 
@@ -87,6 +87,7 @@ Click the **pencil** of *Chests in total* (Home or Report) to add the chests you
 | Updates | Offered (default), installed automatically or off. |
 | Replays folder | Only change it if you moved it. |
 | Account (profile) | Shown when several Fortnite accounts recorded replays on this PC. |
+| Pokédex0 | Optional: connect your Pokédex0 account and pick a hunt. See [Pokédex0](#pokédex0-optional). |
 
 ## Open with Fortnite
 
@@ -144,6 +145,20 @@ The replays saved on a PC are normally its player's: **no name to type**, the to
 
 At startup, the counter checks GitHub for a new version. If there is one, the Home tab shows **what's new in your language**, with **Install**: it is downloaded, verified, and the counter restarts. Your history and settings are kept. After the update, the Home tab shows once what has changed. **Check for updates** asks GitHub again at any time. In the settings you can choose *offered* (default), *installed automatically* (only between two matches) or *off* (no update check).
 
+## Pokédex0 (optional)
+
+[Pokédex0](https://www.pokedex0.com) is a shiny-hunt tracker; Fortnite players track their chests there as a hunt (with a custom method and, if they want, custom odds). The counter can add the chests of each match to that hunt for you.
+
+1. **Settings → Pokédex0 → Connect to Pokédex0.** Your **default browser** opens on pokedex0.com (so your existing Pokédex0 login is used) and asks you to allow *Fortnite Chest Counter*. After you accept, the browser comes back to the counter (`http://127.0.0.1:…/oauth/callback`, on your PC only) and you can close the tab.
+2. **Pick a hunt** in the list (only your active hunts: solo hunts you own and multiplayer hunts you joined; their count, solo or multiplayer and custom odds are shown).
+3. From then on, **each new match adds its chests** to the hunt a few seconds after it is counted: your own chests only (not the squad's), for the profile shown when you picked the hunt. A match re-analyzed by a newer version only sends the difference.
+
+What is **not** sent: the matches already counted when you pick the hunt (they would be added twice if you had already counted them on Pokédex0), and the chests added by hand with the pencil. If you want the matches counted before, **Chests counted before → Add N chests** sends them, once, after showing you the exact number.
+
+Nothing is lost when you are offline or the counter is closed: chests waiting to be sent are kept in the data folder and sent later. Each match has its own fixed operation id, so a retry can never count it twice. If the hunt is completed, abandoned or deleted on Pokédex0, sending pauses and the counter asks you to pick another hunt (picking another hunt drops the chests still waiting for the previous one, and says how many). **Disconnect** forgets the connection, the hunt and what was waiting; you can also remove the app on Pokédex0 under *Settings → Connected Apps*.
+
+What the connection can do on Pokédex0: read your username and your hunts, and add to a hunt counter. It cannot create, edit, complete or delete hunts. The sign-in tokens are stored encrypted for your Windows account (`pokedex0-auth.bin`), never in `config.json`, the activity or `errors.log`. No request is made to Pokédex0 while you are not connected. Technical details: [`docs/pokedex0-integration.md`](docs/pokedex0-integration.md).
+
 ## Your data
 
 Everything is stored in `%APPDATA%\ChestCounter` (**Help → Open the data folder**):
@@ -158,6 +173,7 @@ Everything is stored in `%APPDATA%\ChestCounter` (**Help → Open the data folde
 | `content.json`, `images\` | The treasure hunt data and pictures downloaded from GitHub. |
 | `webview\` | The data of the window's display engine. |
 | `errors.log` | Details of unreadable replays, to attach to a bug report. |
+| `pokedex0.json`, `pokedex0-auth.bin` | Only if you connected Pokédex0: the chosen hunt and the chests waiting to be sent; the sign-in tokens, encrypted for your Windows account. |
 
 To start over, delete this folder (or keep `data.json` to keep your history). If you used the old version (ChestTracker), your `%APPDATA%\ChestTracker` folder is taken over automatically.
 
@@ -201,6 +217,8 @@ ChestCounter.exe --overlay-preview <file.png>   save previews of the overlay, th
 ## Build it yourself
 
 Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (Windows x64), then double-click **`build.bat`**: the exe is written to `dist\ChestCounter.exe`. The GitHub Actions workflow builds the exe on every push and attaches it to a release when a `v*` tag is pushed, with the text of [`RELEASE_NOTES.md`](RELEASE_NOTES.md) (also shown in the counter after an update).
+
+Tests (not part of the exe): `dotnet test tests/ChestCounter.Tests`. The Pokédex0 tests start a local mock of Pokédex0 ([`tests/mock-pokedex0/server.mjs`](tests/mock-pokedex0/server.mjs)), so [Node.js](https://nodejs.org) is needed. `node tests/mock-pokedex0/app-e2e.mjs <ChestCounter.exe> <folder with 5 replays>` runs the real counter against it, in temporary folders. `CHESTCOUNTER_POKEDEX0_URL` points the counter at another Pokédex0 server (https, or http on `127.0.0.1` only).
 
 ## License and credits
 
